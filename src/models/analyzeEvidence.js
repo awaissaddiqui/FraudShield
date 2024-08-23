@@ -6,37 +6,6 @@ import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 configDotenv({
     path: '../../env/.env.production'
 })
-/*
-const secretKey = process.env.OPENAI_API_KEY;
-awaissaddiqui apikey = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjg0YzE3N2ItOTg0ZC00M2ZiLWEwNzYtM2IyMDIzZmVmOGE3IiwidHlwZSI6ImFwaV90b2tlbiJ9.0H8cgsaqTBzl5rfraUYehGvGB93z0wkUfAhNeXM164k"
-
-const URL = '"https://api.edenai.run/v2/text/chat'
-
-export default async function analyzeEvidence(description) {
-
-    const response = await fetch(URL, {
-        headers: {
-            'authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjg0YzE3N2ItOTg0ZC00M2ZiLWEwNzYtM2IyMDIzZmVmOGE3IiwidHlwZSI6ImFwaV90b2tlbiJ9.0H8cgsaqTBzl5rfraUYehGvGB93z0wkUfAhNeXM164k`,
-        },
-        method: 'POST',
-        body: JSON.stringify({
-            providers: "openai/gpt-4o",
-            text: `Analyze the following evidence description for fraud and
-        extract keywords:\n\n"${description}"\n\nKeywords:`,
-            chatbot_global_action: 'Act as an assistant',
-            max_tokens: 150,
-            previous_history: [],
-            stop: null,
-            temperature: 0.0
-
-        })
-    })
-    const data = await response.json();
-    console.log(data);
-    return data;
-}
-*/
-
 
 const secretKey = process.env.EDEN_AI_API_KEY;
 const URL = process.env.EDEN_API_URL;
