@@ -2,6 +2,7 @@ import { arrayUnion, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebase.js";
 import { addReportValidation } from "../validators/fraudReportValidation.js";
 import analyzeEvidence from "../models/analyzeEvidence.js";
+import { v6 as repID } from "uuid";
 export default {
     getAllFraudReports: async (req, res) => {
         try {
@@ -13,8 +14,8 @@ export default {
         }
     },
     getFraudReportById: async (req, res) => {
-        const { email } = req.headers;
-        if (!email) return res.status(401).send('Email is required');
+        const { reportID } = req.body;
+        if (!reportID) return res.status(400).send('Report ID is required');
 
         try {
             const docRef = doc(db, "fraudReport", 'dbdOrrSEWuvbZBAJwRov');
@@ -25,11 +26,8 @@ export default {
             }
 
             const reports = docSnap.data().reports;
-            const report = reports.find(report => report.email === email);
-
-            if (!report) {
-                return res.status(404).send('No report found');
-            }
+            const report = reports.find(report => report.repID === reportID);
+            if (!report) return res.status(404).send('No report found');
 
             res.status(200).send(report);
         } catch (error) {
@@ -38,8 +36,9 @@ export default {
     },
     addFraudReport: async (req, res) => {
         const { name, email, CNIC, phone, address, city, country, evidence, date, url } = req.body;
-        const { error } = addReportValidation(req.body);
-        if (error) return res.status(403).send(error.details[0].message);
+        // const { error } = addReportValidation(req.body);
+        // if (error) return res.status(403).send(error.details[0].message);
+        const reportID = repID();
         const newReport = {
             name: name,
             email: email,
@@ -50,7 +49,8 @@ export default {
             country: country,
             evidence: evidence,
             date: new Date(date).toISOString(),
-            url: url
+            url: url,
+            repID: reportID
         };
         try {
             const fraudRef = doc(db, "fraudReport", 'dbdOrrSEWuvbZBAJwRov')
@@ -58,7 +58,7 @@ export default {
                 reports: arrayUnion(newReport)
             });
             res.status(200).send(fraudRef)
-            analyzeEvidence(evidence).catch(error => console.log(error.message))
+            // analyzeEvidence(evidence).catch(error => console.log(error.message))
 
         } catch (error) {
             res.status(403).send(error.message)

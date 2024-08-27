@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, updateProfile, updateCurrentUser, onAuthStateChanged, signInWithPopup } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, updateProfile, updateCurrentUser, onAuthStateChanged, signInWithPopup, updateEmail, updatePassword } from "firebase/auth";
 import { auth } from "../../firebase.js";
 import { signUpValidation, loginValidation, forgetPasswordValidation } from "../validators/authValidation.js";
 
@@ -68,6 +68,31 @@ export default {
             } else {
                 res.status(403).send('No user is signed in')
             }
+        })
+    },
+    updateProfile: async (req, res) => {
+        const { displayName, photoURL, email, password } = req.body;
+
+        try {
+            await updatePassword(auth.currentUser, password);
+
+            await updateEmail(auth.currentUser, email);
+
+            await updateProfile(auth.currentUser, {
+                displayName: displayName,
+                photoURL: photoURL
+            });
+
+            res.status(200).send('Profile updated successfully');
+        } catch (error) {
+            res.status(403).send(error.message);
+        }
+    },
+    deleteUser: (req, res) => {
+        auth.currentUser.delete().then(() => {
+            res.status(200).send('User deleted successfully')
+        }).catch((error) => {
+            res.status(403).send(error.message)
         })
     }
 }
