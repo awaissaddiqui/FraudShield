@@ -4,7 +4,7 @@ import { db } from "../../firebase.js";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 
 configDotenv({
-    path: '../../env/.env.production'
+    path: '../..//.env.production'
 })
 
 const secretKey = process.env.EDEN_AI_API_KEY;
