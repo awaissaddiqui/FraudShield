@@ -35,7 +35,7 @@ export default {
         }
     },
     addFraudReport: async (req, res) => {
-        const { name, email, CNIC, phone, address, city, country, evidence, date, url } = req.body;
+        const { name, email, CNIC, phone, address, city, title, evidence, date, url } = req.body;
         // const { error } = addReportValidation(req.body);
         // if (error) return res.status(403).send(error.details[0].message);
         const reportID = repID();
@@ -44,9 +44,9 @@ export default {
             email: email,
             CNIC: CNIC,
             phone: phone,
+            title: title,
             address: address,
             city: city,
-            country: country,
             evidence: evidence,
             date: new Date(date).toISOString(),
             url: url,
