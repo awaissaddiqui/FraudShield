@@ -1,6 +1,7 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, updateProfile, updateCurrentUser, onAuthStateChanged, signInWithPopup, updateEmail, updatePassword } from "firebase/auth";
-import { auth } from "../../firebase.js";
+import { auth, db } from "../../firebase.js";
 import { signUpValidation, loginValidation, forgetPasswordValidation } from "../validators/authValidation.js";
+import { addDoc, collection, doc } from "firebase/firestore";
 
 
 export default {
@@ -36,7 +37,6 @@ export default {
             const user = userCredential.user;
             updateProfile(user, {
                 displayName: username,
-                photoURL: "https://example.com/jane-q-user/profile.jpg",
             })
             sendEmailVerification(auth.currentUser).then(() => {
                 res.status(200).send(username + " is register successfully, verification link is send to your email account ");
@@ -71,21 +71,36 @@ export default {
         })
     },
     updateProfile: async (req, res) => {
-        const { displayName, photoURL, email, password } = req.body;
+        const { photoURL, username, email, phone } = req.body;
 
         try {
-            await updatePassword(auth.currentUser, password);
+            const user = auth.currentUser;
 
-            await updateEmail(auth.currentUser, email);
+            if (!user) {
+                return res.status(403).send('No user is currently authenticated');
+            }
 
-            await updateProfile(auth.currentUser, {
-                displayName: displayName,
+            // Update profile fields (displayName, photoURL)
+            await updateProfile(user, {
+                displayName: username,
                 photoURL: photoURL
             });
 
-            res.status(200).send('Profile updated successfully');
+            // Update email if it's provided and different from the current email
+            if (email && email !== user.email) {
+                await updateEmail(user, email);
+            }
+
+            // Update the phone number (This requires verifying the phone number through Firebase Phone Auth)
+            if (phone) {
+                // You need to handle phone verification separately
+                // This is just a placeholder comment. Firebase Phone Auth flow should go here.
+                console.log('Phone number update requires phone verification.');
+            }
+
+            return res.status(200).send('Profile updated successfully');
         } catch (error) {
-            res.status(403).send(error.message);
+            return res.status(403).send(error.message);
         }
     },
     deleteUser: (req, res) => {
@@ -94,5 +109,14 @@ export default {
         }).catch((error) => {
             res.status(403).send(error.message)
         })
+    },
+    getUserProfile: async (req, res) => {
+        const profileRef = doc(db, "profiles", "LM88l3OdOOhjEqqrrcrS");
+        const profileSnap = await profileRef.get();
+        if (profileSnap.exists()) {
+            res.status(200).send(profileSnap.data());
+        } else {
+            res.status(404).send('No profile found');
+        }
     }
 }

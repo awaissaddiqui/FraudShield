@@ -36,8 +36,8 @@ export default {
     },
     addFraudReport: async (req, res) => {
         const { name, email, CNIC, phone, address, city, title, evidence, date, url } = req.body;
-        // const { error } = addReportValidation(req.body);
-        // if (error) return res.status(403).send(error.details[0].message);
+        const { error } = addReportValidation(req.body);
+        if (error) return res.status(403).send(error.details[0].message);
         const reportID = repID();
         const newReport = {
             name: name,
@@ -58,7 +58,7 @@ export default {
                 reports: arrayUnion(newReport)
             });
             res.status(200).send(fraudRef)
-            // analyzeEvidence(evidence).catch(error => console.log(error.message))
+            analyzeEvidence(evidence).catch(error => console.log(error.message))
 
         } catch (error) {
             res.status(403).send(error.message)
