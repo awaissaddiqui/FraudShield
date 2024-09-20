@@ -21,3 +21,11 @@ export function forgetPasswordValidation(user) {
     })
     return schema.validate(user)
 }
+
+export function changePasswordValidation(password) {
+    const schema = Joi.object({
+        oldPassword: Joi.string().min(8).required(),
+        newPassword: Joi.string().min(8).required()
+    })
+    return schema.validate(password)
+}

@@ -4,11 +4,12 @@ import { db } from "../../firebase.js";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 
 configDotenv({
-    path: '../..//.env.production'
+    path: '../../../.env.production'
 })
 
 const secretKey = process.env.EDEN_AI_API_KEY;
 const URL = process.env.EDEN_API_URL;
+// console.log(URL);
 
 const options = (description) => ({
     method: "POST",

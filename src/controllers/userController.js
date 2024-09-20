@@ -1,19 +1,29 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, updateProfile, updateCurrentUser, onAuthStateChanged, signInWithPopup, updateEmail, updatePassword } from "firebase/auth";
+import {
+    createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+    sendEmailVerification, sendPasswordResetEmail, updateProfile,
+    onAuthStateChanged,
+    updatePassword
+} from "firebase/auth";
 import { auth, db } from "../../firebase.js";
-import { signUpValidation, loginValidation, forgetPasswordValidation } from "../validators/authValidation.js";
-import { addDoc, collection, doc } from "firebase/firestore";
-
+import { signUpValidation, loginValidation, forgetPasswordValidation, changePasswordValidation } from "../validators/authValidation.js";
+import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 
 export default {
     login: (req, res) => {
         const { email, password } = req.body;
         const { error } = loginValidation(req.body);
-        if (error) return res.status(403).send(error.details[0].message);
+        if (error) return res.status(403).send({ message: error.details[0].message });
         signInWithEmailAndPassword(auth, email, password).then((userCredential) => {
-            if (!userCredential.user.emailVerified) return res.status(403).send('Please verify your email first');
+            if (!userCredential.user.emailVerified) return res.status(403).send({ message: 'Please verify your email address' });
             res.status(200).send(auth.currentUser);
         }).catch((error) => {
-            res.status(403).send(error.message)
+            if (error.code === 'auth/wrong-password') return res.status(401).send({ message: 'username or password is incorrect' });
+            if (error.code === 'auth/user-disabled') return res.status(400).send({ message: 'User is disabled' });
+            if (error.code === 'auth/user-not-found') return res.status(404).send({ message: 'User not found' });
+            if (error.code === 'auth/invalid-email') return res.status(403).send({ message: 'Invalid email or password' });
+            if (error.code === 'auth/invalid-credential') return res.status(403).send({ message: 'email or password are incorrect' });
+            if (error.code === 'auth/network-request-failed') return res.status(400).send({ message: 'Network request failed' });
+            res.status(500).send({ message: error.code });
         }
         )
     },
@@ -24,13 +34,16 @@ export default {
         // signInWithPopup(auth, provider).then((result) => {
         //     const credential = GoogleAuthProvider.credentialFromResult(result);
         //     const token = credential.accessToken;
+        //     console.log(token);
         //     const user = result.user;
         //     res.status(200).send(user);
         // }).catch((error) => {
         //     const errorCode = error.code;
+        //     console.log(errorCode);
         //     const errorMessage = error.message;
         //     const email = error.email;
         //     const credential = GoogleAuthProvider.credentialFromError(error);
+        //     console.log(credential);
         //     res.status(403).send(errorMessage);
         // });
         createUserWithEmailAndPassword(auth, email, password).then((userCredential) => {
@@ -39,27 +52,37 @@ export default {
                 displayName: username,
             })
             sendEmailVerification(auth.currentUser).then(() => {
-                res.status(200).send(username + " is register successfully, verification link is send to your email account ");
+                res.status(201).send(username + " is register successfully, verification link is send to your email account ");
             }).catch((error) => {
-                console.log(error);
+                console.log(error.code);
             })
         }).catch((error) => {
-            if (error.code === 'auth/email-already-in-use') return res.status(403).send(email + ' already registered')
+            if (error.code === 'auth/email-already-in-use') return res.status(403).send(' Eamil already registered')
+            if (error.code === 'auth/weak-password') return res.status(403).send('Password is too weak')
+            if (error.code === 'auth/invalid-email') return res.status(403).send('Invalid email')
+            if (error.code === 'too-many-requests') return res.status(403).send('Too many requests, please try again later')
+            if (error.code === 'network-request-failed') return res.status(403).send('Network request failed')
+
         })
     },
-    forgetPassword: (req, res) => {
+    forgetPassword: async (req, res) => {
         const { email } = req.body;
         const { error } = forgetPasswordValidation(req.body);
-        if (error) return res.status(403).send(error.details[0].message);
-        sendPasswordResetEmail(auth, email);
-        res.status(200).send('Password reset link is send to your email ' + email);
+        if (error) return res.status(403).send({ message: error.details[0].message });
+        try {
+            await sendPasswordResetEmail(auth, email);
+            res.status(200).send({ message: `Password reset link is sent to your ${email} successfully` });
+        } catch (error) {
+            res.status(500).send({ message: 'Failed to send password reset link', error: error.message });
+        }
     },
     signOut: (req, res) => {
         signOut(auth).then(() => {
-            res.status(200).send(auth.currentUser)
+            res.status(200).send({ message: 'Successfully signed out' });
         }).catch((error) => {
-            console.log(error);
-        })
+            console.error('Error signing out:', error);
+            res.status(500).send({ error: 'Failed to sign out' });
+        });
     },
     authenticatedUser: (req, res) => {
         onAuthStateChanged(auth, (user) => {
@@ -71,52 +94,94 @@ export default {
         })
     },
     updateProfile: async (req, res) => {
-        const { photoURL, username, email, phone } = req.body;
-
+        const { photoURL, username, websiteUrl, phone, address } = req.body;
         try {
             const user = auth.currentUser;
-
-            if (!user) {
-                return res.status(403).send('No user is currently authenticated');
-            }
-
-            // Update profile fields (displayName, photoURL)
+            if (!user) return res.status(401).send('No user is loggedIn');
             await updateProfile(user, {
                 displayName: username,
-                photoURL: photoURL
+                photoURL: photoURL,
             });
 
-            // Update email if it's provided and different from the current email
-            if (email && email !== user.email) {
-                await updateEmail(user, email);
-            }
+            const profileRef = doc(db, "profiles", user.email);
 
-            // Update the phone number (This requires verifying the phone number through Firebase Phone Auth)
-            if (phone) {
-                // You need to handle phone verification separately
-                // This is just a placeholder comment. Firebase Phone Auth flow should go here.
-                console.log('Phone number update requires phone verification.');
-            }
+            await setDoc(profileRef, {
+                username: username,
+                photoURL: photoURL,
+                websiteUrl: websiteUrl,
+                phone: phone,
+                address: address
+            });
 
-            return res.status(200).send('Profile updated successfully');
+            return res.status(201).send('Profile updated successfully');
         } catch (error) {
             return res.status(403).send(error.message);
         }
     },
     deleteUser: (req, res) => {
-        auth.currentUser.delete().then(() => {
+        const { email } = req.body;
+        const user = auth.currentUser;
+        if (!user) return res.status(401).send('No user is loggedIn');
+        if (email !== user.email) return res.status(400).send('Please provide correct email');
+        user.delete().then(() => {
+            const profileRef = doc(db, "profiles", user.email);
+            deleteDoc(profileRef);
             res.status(200).send('User deleted successfully')
         }).catch((error) => {
-            res.status(403).send(error.message)
+            res.status(400).send(error.message)
         })
     },
     getUserProfile: async (req, res) => {
-        const profileRef = doc(db, "profiles", "LM88l3OdOOhjEqqrrcrS");
-        const profileSnap = await profileRef.get();
-        if (profileSnap.exists()) {
-            res.status(200).send(profileSnap.data());
-        } else {
-            res.status(404).send('No profile found');
+        const user = auth.currentUser;
+        if (!user) return res.status(401).send('No user is logged in');
+
+        try {
+            const profileRef = doc(db, "profiles", user.email);
+            const profileSnap = await getDoc(profileRef);
+
+            if (profileSnap.exists()) {
+                res.status(200).json(profileSnap.data());
+            } else {
+
+                res.status(200).json({
+                    username: "",
+                    email: user.email,
+                    photoURL: "",
+                    address: "",
+                    phoneNumber: "",
+                    websiteUrl: "",
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+            res.status(500).send('Internal server error');
+        }
+    },
+    changePassword: async (req, res) => {
+        const { oldPassword, newPassword } = req.body;
+        const { error } = changePasswordValidation(req.body);
+        if (error) return res.status(400).json({ message: error.details[0].message });
+
+        const user = auth.currentUser;
+        if (!user) return res.status(401).json({ message: 'No user is logged in' });
+
+        try {
+
+            await signInWithEmailAndPassword(auth, user.email, oldPassword);
+            await updatePassword(user, newPassword);
+            res.status(200).json({ message: 'Password updated successfully' });
+        } catch (error) {
+            if (error.code === 'auth/invalid-credential') return res.status(400).json({ message: 'The old password is incorrect' });
+            if (error.code === 'auth/wrong-password') {
+                res.status(403).json({ message: 'The old password is incorrect' });
+            } else if (error.code === 'auth/weak-password') {
+                res.status(400).json({ message: 'The new password is too weak' });
+            } else {
+                console.log(error.code);
+                res.status(500).json({ message: 'Failed to update password', error: error.message });
+            }
         }
     }
+
+
 }

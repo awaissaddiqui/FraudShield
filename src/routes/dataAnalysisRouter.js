@@ -1,6 +1,6 @@
 import express from 'express';
 import dataAnaylsisController from '../controllers/dataAnaylsisController.js';
-import analyzeEvidence from '../models/analyzeEvidence.js';
+
 
 const router = express.Router();
 

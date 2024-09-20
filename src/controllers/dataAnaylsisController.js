@@ -9,7 +9,6 @@ export default {
             const trends = await getDocs(collection(db, "trends"));
             const keywordCount = {};
 
-            // Extracting trendingKeywords and counting their occurrences
             trends.forEach(doc => {
                 const keywords = doc.data().trendingKeywords || [];
                 keywords.forEach(keyword => {
@@ -17,7 +16,6 @@ export default {
                 });
             });
 
-            // Transforming the keywordCount object into an array of objects
             const responseArray = Object.keys(keywordCount).map(keyword => ({
                 keyword,
                 total: keywordCount[keyword]
@@ -44,6 +42,4 @@ export default {
             res.status(500).json({ error: error.message });
         }
     }
-
-
 }

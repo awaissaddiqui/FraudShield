@@ -4,7 +4,8 @@ const router = express.Router();
 
 router.get('/all', fraudController.getAllFraudReports);
 router.get('/single', fraudController.getFraudReportById);
-router.post('/addreport', fraudController.addFraudReport);
+router.post('/add-report', fraudController.addFraudReport);
+router.put('/update-report', fraudController.updateReport);
 
 
 
