@@ -6,7 +6,9 @@ import {
 } from "firebase/auth";
 import { auth, db } from "../../firebase.js";
 import { signUpValidation, loginValidation, forgetPasswordValidation, changePasswordValidation } from "../validators/authValidation.js";
-import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { v6 as ApiKey } from "uuid";
+import { addDoc } from "firebase/firestore/lite";
 
 export default {
     login: (req, res) => {
@@ -14,7 +16,8 @@ export default {
         const { error } = loginValidation(req.body);
         if (error) return res.status(403).send({ message: error.details[0].message });
         signInWithEmailAndPassword(auth, email, password).then((userCredential) => {
-            if (!userCredential.user.emailVerified) return res.status(403).send({ message: 'Please verify your email address' });
+            const verifyUser = userCredential.user.emailVerified;
+            if (!verifyUser) return res.status(403).send({ message: 'Please verify your email address' });
             res.status(200).send(auth.currentUser);
         }).catch((error) => {
             if (error.code === 'auth/wrong-password') return res.status(401).send({ message: 'username or password is incorrect' });
@@ -46,13 +49,21 @@ export default {
         //     console.log(credential);
         //     res.status(403).send(errorMessage);
         // });
+        const api_key = ApiKey();
         createUserWithEmailAndPassword(auth, email, password).then((userCredential) => {
             const user = userCredential.user;
             updateProfile(user, {
                 displayName: username,
             })
-            sendEmailVerification(auth.currentUser).then(() => {
+            sendEmailVerification(auth.currentUser).then(async () => {
                 res.status(201).send(username + " is register successfully, verification link is send to your email account ");
+                const authKeyData = await setDoc(doc(db, "ApiAuth", user.uid), {
+                    apiKey: api_key,
+                    uid: user.uid,
+                    createdAt: new Date().toISOString(),
+                    // expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Example: Expires in 30 days
+                });
+
             }).catch((error) => {
                 console.log(error.code);
             })
@@ -85,11 +96,19 @@ export default {
         });
     },
     authenticatedUser: (req, res) => {
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
-                res.status(200).send(user)
+                try {
+                    const apiRef = doc(db, "ApiAuth", user.uid);
+                    const apiAuth = await getDoc(apiRef);
+                    if (apiAuth.exists()) {
+                        res.status(200).send({ user: user, apiKey: apiAuth.data() });
+                    }
+                } catch (error) {
+                    console.log(error);
+                }
             } else {
-                res.status(403).send('No user is signed in')
+                res.status(403).send('No user is signed in');
             }
         })
     },
@@ -104,7 +123,6 @@ export default {
             });
 
             const profileRef = doc(db, "profiles", user.email);
-
             await setDoc(profileRef, {
                 username: username,
                 photoURL: photoURL,

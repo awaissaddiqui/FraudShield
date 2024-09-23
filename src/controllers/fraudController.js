@@ -24,9 +24,6 @@ export default {
             res.status(401).send(error.message);
         }
     },
-
-
-
     getFraudReportById: async (req, res) => {
         const { reportID } = req.query;
         if (!reportID) return res.status(400).send('Report ID is required');
@@ -115,4 +112,6 @@ export default {
         }
     },
 
+
 };
+
