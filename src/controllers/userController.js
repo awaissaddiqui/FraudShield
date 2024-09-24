@@ -97,13 +97,17 @@ export default {
     authenticatedUser: (req, res) => {
         onAuthStateChanged(auth, async (user) => {
             try {
+                if (!user) {
+                    return res.status(401).send({ message: 'No user is loggedIn' });
+                }
                 const apiRef = doc(db, "ApiAuth", user.uid);
                 const apiAuth = await getDoc(apiRef);
                 if (apiAuth.exists()) {
-                    res.status(200).send({ user: user, apiKey: apiAuth.data() });
+                    return res.status(200).send({ user: user, apiKey: apiAuth.data() });
                 }
             } catch (error) {
                 console.log(error);
+                return res.status(500).send({ message: `Internal server error: ${error} ` });
             }
         })
     },
@@ -204,4 +208,4 @@ export default {
             res.status(500).send(error.message);
         });
     }
-    }
+}
