@@ -12,5 +12,6 @@ router.put('/update', userController.updateProfile);
 router.get('/currentuser', userController.getUserProfile);
 router.delete('/delete', userController.deleteUser);
 router.put('/change-password', userController.changePassword);
+router.post('/sign-in-with-google', userController.signInWithSocalMedia);
 
 export default router;

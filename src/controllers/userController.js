@@ -2,13 +2,13 @@ import {
     createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
     sendEmailVerification, sendPasswordResetEmail, updateProfile,
     onAuthStateChanged,
-    updatePassword
+    updatePassword,
+    GoogleAuthProvider
 } from "firebase/auth";
 import { auth, db } from "../../firebase.js";
 import { signUpValidation, loginValidation, forgetPasswordValidation, changePasswordValidation } from "../validators/authValidation.js";
-import { collection, deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
 import { v6 as ApiKey } from "uuid";
-import { addDoc } from "firebase/firestore/lite";
 
 export default {
     login: (req, res) => {
@@ -17,38 +17,37 @@ export default {
         if (error) return res.status(403).send({ message: error.details[0].message });
         signInWithEmailAndPassword(auth, email, password).then((userCredential) => {
             const verifyUser = userCredential.user.emailVerified;
-            if (!verifyUser) return res.status(403).send({ message: 'Please verify your email address' });
+            if (!verifyUser) {
+                return res.status(403).send({ message: 'Please verify your email address' });
+            }
             res.status(200).send(auth.currentUser);
         }).catch((error) => {
-            if (error.code === 'auth/wrong-password') return res.status(401).send({ message: 'username or password is incorrect' });
-            if (error.code === 'auth/user-disabled') return res.status(400).send({ message: 'User is disabled' });
-            if (error.code === 'auth/user-not-found') return res.status(404).send({ message: 'User not found' });
-            if (error.code === 'auth/invalid-email') return res.status(403).send({ message: 'Invalid email or password' });
-            if (error.code === 'auth/invalid-credential') return res.status(403).send({ message: 'email or password are incorrect' });
-            if (error.code === 'auth/network-request-failed') return res.status(400).send({ message: 'Network request failed' });
-            res.status(500).send({ message: error.code });
-        }
-        )
+            if (error.code === 'auth/wrong-password') {
+                return res.status(401).send({ message: 'username or password is incorrect' });
+            }
+            if (error.code === 'auth/user-disabled') {
+                return res.status(400).send({ message: 'User is disabled' });
+            }
+            if (error.code === 'auth/user-not-found') {
+                return res.status(404).send({ message: 'User not found' });
+            }
+            if (error.code === 'auth/invalid-email') {
+                return res.status(403).send({ message: 'Invalid email or password' });
+            }
+            if (error.code === 'auth/invalid-credential') {
+                return res.status(403).send({ message: 'email or password are incorrect' });
+            }
+            if (error.code === 'auth/network-request-failed') {
+                return res.status(400).send({ message: 'Network request failed' });
+            }
+            return res.status(500).send({ message: error.code });
+        });
     },
     register: (req, res) => {
         const { username, email, password } = req.body;
         const { error } = signUpValidation(req.body);
         if (error) return res.status(403).send(error.details[0].message);
-        // signInWithPopup(auth, provider).then((result) => {
-        //     const credential = GoogleAuthProvider.credentialFromResult(result);
-        //     const token = credential.accessToken;
-        //     console.log(token);
-        //     const user = result.user;
-        //     res.status(200).send(user);
-        // }).catch((error) => {
-        //     const errorCode = error.code;
-        //     console.log(errorCode);
-        //     const errorMessage = error.message;
-        //     const email = error.email;
-        //     const credential = GoogleAuthProvider.credentialFromError(error);
-        //     console.log(credential);
-        //     res.status(403).send(errorMessage);
-        // });
+
         const api_key = ApiKey();
         createUserWithEmailAndPassword(auth, email, password).then((userCredential) => {
             const user = userCredential.user;
@@ -68,11 +67,11 @@ export default {
                 console.log(error.code);
             })
         }).catch((error) => {
-            if (error.code === 'auth/email-already-in-use') return res.status(403).send(' Eamil already registered')
-            if (error.code === 'auth/weak-password') return res.status(403).send('Password is too weak')
-            if (error.code === 'auth/invalid-email') return res.status(403).send('Invalid email')
-            if (error.code === 'too-many-requests') return res.status(403).send('Too many requests, please try again later')
-            if (error.code === 'network-request-failed') return res.status(403).send('Network request failed')
+            if (error.code === 'auth/email-already-in-use') { return res.status(403).send(' Eamil already registered') }
+            if (error.code === 'auth/weak-password') { return res.status(403).send('Password is too weak') }
+            if (error.code === 'auth/invalid-email') { return res.status(403).send('Invalid email') }
+            if (error.code === 'too-many-requests') { return res.status(403).send('Too many requests, please try again later') }
+            if (error.code === 'network-request-failed') { return res.status(403).send('Network request failed') }
 
         })
     },
@@ -97,18 +96,14 @@ export default {
     },
     authenticatedUser: (req, res) => {
         onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                try {
-                    const apiRef = doc(db, "ApiAuth", user.uid);
-                    const apiAuth = await getDoc(apiRef);
-                    if (apiAuth.exists()) {
-                        res.status(200).send({ user: user, apiKey: apiAuth.data() });
-                    }
-                } catch (error) {
-                    console.log(error);
+            try {
+                const apiRef = doc(db, "ApiAuth", user.uid);
+                const apiAuth = await getDoc(apiRef);
+                if (apiAuth.exists()) {
+                    res.status(200).send({ user: user, apiKey: apiAuth.data() });
                 }
-            } else {
-                res.status(403).send('No user is signed in');
+            } catch (error) {
+                console.log(error);
             }
         })
     },
@@ -199,7 +194,14 @@ export default {
                 res.status(500).json({ message: 'Failed to update password', error: error.message });
             }
         }
+    },
+    signInWithSocalMedia: (req, res) => {
+        const provider = new GoogleAuthProvider();
+        signInWithPopup(auth, provider).then((result) => {
+            const user = result.user;
+            res.status(200).send(user);
+        }).catch((error) => {
+            res.status(500).send(error.message);
+        });
     }
-
-
-}
+    }
