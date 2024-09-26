@@ -1,74 +1,25 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js project to Azure Function App - fraud-shield
+name: fraudshield
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-
-env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  NODE_VERSION: '20.x' # set this to the node version to use (supports 8.x, 10.x, 12.x)
+    branches: [ "main" ]
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        node-version: [21.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
     steps:
-      - name: 'Checkout GitHub Action'
-        uses: actions/checkout@v4
-
-      - name: Setup Node ${{ env.NODE_VERSION }} Environment
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: 'Resolve Project Dependencies Using Npm'
-        shell: pwsh
-      - run: |
-          touch .env
-          echo "${{ secrets.PROD_ENV_FILE }}" > .env
-      - run: |
-          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          npm install
-          npm run build --if-present
-          popd
-
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_0F1443984F354B1B9CE284B753124BD3 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_E7CD81596CA34AD6AAB55BE584B7F2D5 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7C2121DAC16F4B57B00F8CDA64408AB5 }}
-
-      - name: 'Run Azure Functions Action'
-        uses: Azure/functions-action@v1
-        id: fa
-        with:
-          app-name: 'fraud-shield'
-          slot-name: 'Production'
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: |
+        touch .env
+        echo "${{ secrets.PROD_ENV_FILE }}" > .env
+    - run: pm2 restart index
